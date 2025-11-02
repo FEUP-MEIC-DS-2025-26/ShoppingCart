@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  # This is your Node.js backend
+  backend:
+    build: ./backend
+    container_name: backend_service
+    ports:
+      # Maps your computer's port 5000 to the container's port 5000
+      - "4000:4000"
+    env_file:
+      - ./backend/.env  # <-- ADD THIS LINE
+    environment:
+      # You can add database URLs or other secrets here
+      - NODE_ENV=production
+
+  # This is your React frontend
+  frontend:
+    build: ./frontend
+    container_name: frontend_service
+    ports:
+      # Maps your computer's port 3000 to the Nginx container's port 80
+      - "3000:80"
+    depends_on:
+      # Tells the frontend to wait for the backend to start
+      - backend
