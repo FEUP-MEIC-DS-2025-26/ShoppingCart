@@ -11,6 +11,9 @@ app.use(express.json());
 // Initialize database when server starts
 initDb();
 
+// Note: this backend uses the external product API (Jumpseller) as the single source of truth
+// for product data. Cart storage keeps item_id and quantity, but product details are always
+// fetched from the product service.
 // Utility function to format item data
 function toItem(row) {
   return { id: row.id, name: row.name, price: row.price, stock: row.stock };
@@ -19,22 +22,15 @@ function toItem(row) {
 // GET /api/items - Get all products
 app.get('/api/items', async (req, res) => {
   try {
-    // Try to fetch from Jumpseller API first
+    // Fetch from Jumpseller API (single source of truth)
     const apiProducts = await productService.getProducts();
-    
-    if (apiProducts) {
-      // Return Jumpseller products
-      res.json(apiProducts);
-    } else {
-      // Fall back to local database
-      db.all('SELECT id, name, price, stock FROM items', (err, rows) => {
-        if (err) return res.status(500).json({ error: 'DB error' });
-        res.json(rows.map(toItem));
-      });
+    if (!apiProducts) {
+      return res.status(503).json({ error: 'Product service unavailable', actionable: 'Try again later' });
     }
+    return res.json(apiProducts);
   } catch (error) {
     console.error('Error in /api/items:', error);
-    res.status(500).json({ error: 'Failed to fetch products' });
+    res.status(503).json({ error: 'Product service unavailable', actionable: 'Try again later' });
   }
 });
 
@@ -49,12 +45,27 @@ app.get('/api/cart', async (req, res) => {
         return res.json({ items: [], subtotal: 0, shipping: 0, discount: 0, total: 0 });
       }
       
-      // Get product details from ProductService
-      const products = await productService.getProducts();
+      // Get product details from ProductService (strict: API only)
+      let products = null;
+      try {
+        products = await productService.getProducts();
+      } catch (e) {
+        console.error('Product service error in /api/cart:', e.message || e);
+        return res.status(503).json({ error: 'Product service unavailable', actionable: 'Try again later' });
+      }
+
+      if (!products) {
+        return res.status(503).json({ error: 'Product service unavailable', actionable: 'Try again later' });
+      }
+
+      // Ensure all cart item ids exist in API response
+      const missing = cartRows.map(r => r.item_id).filter(id => !products.some(p => p.id === id));
+      if (missing.length > 0) {
+        return res.status(400).json({ error: 'Some cart items are not available in product service', missing });
+      }
+
       const items = cartRows.map(cartItem => {
         const product = products.find(p => p.id === cartItem.item_id);
-        if (!product) return null; // Skip if product not found
-        
         return {
           id: product.id,
           name: product.name,
@@ -62,7 +73,7 @@ app.get('/api/cart', async (req, res) => {
           quantity: cartItem.quantity,
           lineTotal: product.price * cartItem.quantity
         };
-      }).filter(item => item !== null); // Remove null entries
+      });
       
       const subtotal = items.reduce((s, it) => s + it.lineTotal, 0);
       // Simple shipping & discount logic for demo
@@ -85,14 +96,22 @@ app.post('/api/cart', async (req, res) => {
   }
 
   try {
-    // Get products from ProductService to validate item exists
-    const products = await productService.getProducts();
-    const item = products.find(p => p.id === itemId);
-    
-    if (!item) {
-      return res.status(404).json({ error: 'Item not found' });
+    // Strictly use ProductService for product validation
+    let products;
+    try {
+      products = await productService.getProducts();
+    } catch (e) {
+      console.error('Product service error in POST /api/cart:', e.message || e);
+      return res.status(503).json({ error: 'Product service unavailable', actionable: 'Try again later' });
     }
-    
+
+    if (!products) {
+      return res.status(503).json({ error: 'Product service unavailable', actionable: 'Try again later' });
+    }
+
+    const item = products.find(p => p.id === itemId);
+    if (!item) return res.status(404).json({ error: 'Item not found' });
+
     if (quantity > item.stock) {
       return res.status(409).json({ error: 'Insufficient stock', actionable: `Only ${item.stock} left in stock` });
     }
@@ -140,18 +159,26 @@ app.put('/api/cart/:itemId', async (req, res) => {
   }
 
   try {
-    // Get products from ProductService to validate item exists and check stock
-    const products = await productService.getProducts();
-    const item = products.find(p => p.id === itemId);
-    
-    if (!item) {
-      return res.status(404).json({ error: 'Item not found' });
+    // Strictly use ProductService for product validation
+    let products;
+    try {
+      products = await productService.getProducts();
+    } catch (e) {
+      console.error('Product service error in PUT /api/cart/:itemId:', e.message || e);
+      return res.status(503).json({ error: 'Product service unavailable', actionable: 'Try again later' });
     }
-    
+
+    if (!products) {
+      return res.status(503).json({ error: 'Product service unavailable', actionable: 'Try again later' });
+    }
+
+    const item = products.find(p => p.id === itemId);
+    if (!item) return res.status(404).json({ error: 'Item not found' });
+
     if (quantity > item.stock) {
       return res.status(409).json({ error: 'Insufficient stock', actionable: `Only ${item.stock} left in stock` });
     }
-    
+
     db.run('UPDATE cart_items SET quantity = ? WHERE item_id = ?', [quantity, itemId], function (uerr) {
       if (uerr) return res.status(500).json({ error: 'DB error' });
       return res.json({ success: true });
@@ -186,8 +213,24 @@ app.post('/api/checkout', async (req, res) => {
         return res.status(400).json({ error: 'Empty cart', actionable: 'Add items to cart before checkout' });
       }
       
-      // Get product details from ProductService
-      const products = await productService.getProducts();
+      // Strictly get product details from ProductService
+      let products;
+      try {
+        products = await productService.getProducts();
+      } catch (e) {
+        console.error('Product service error in checkout:', e.message || e);
+        return res.status(503).json({ error: 'Product service unavailable', actionable: 'Try again later' });
+      }
+
+      if (!products) {
+        return res.status(503).json({ error: 'Product service unavailable', actionable: 'Try again later' });
+      }
+
+      const missing = cartRows.map(r => r.item_id).filter(id => !products.some(p => p.id === id));
+      if (missing.length > 0) {
+        return res.status(400).json({ error: 'Some cart items are not available in product service', missing });
+      }
+
       const cartWithProducts = cartRows.map(cartItem => {
         const product = products.find(p => p.id === cartItem.item_id);
         return {

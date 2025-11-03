@@ -17,12 +17,13 @@ function initDb() {
     `);
 
     // Create cart_items table (what users add to cart)
+    // Note: item_id stores external product IDs (from Jumpseller). We don't enforce a foreign key here
+    // because products are sourced from the external API.
     db.run(`
       CREATE TABLE IF NOT EXISTS cart_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         item_id INTEGER NOT NULL,
-        quantity INTEGER NOT NULL,
-        FOREIGN KEY(item_id) REFERENCES items(id)
+        quantity INTEGER NOT NULL
       )
     `);
 
