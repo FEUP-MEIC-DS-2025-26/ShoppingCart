@@ -93,6 +93,9 @@ resource "google_cloud_run_service" "backend" {
     spec {
       containers {
         image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.repo.repository_id}/backend:latest"
+        ports {
+          container_port = 4000
+        }
         dynamic "env" {
           for_each = [for e in local.backend_env : {
             name  = split("=", e)[0]
@@ -124,11 +127,13 @@ resource "google_cloud_run_service" "frontend" {
     spec {
       containers {
         image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.repo.repository_id}/frontend:latest"
-
-        #env {
-        #  name  = "BACKEND_URL"
-        #  value = google_cloud_run_service.backend.status[0].url
-        #}
+        ports {
+          container_port = 80
+        }
+        env {
+          name  = "BACKEND_URL"
+          value = google_cloud_run_service.backend.status[0].url
+        }
       }
     }
   }
