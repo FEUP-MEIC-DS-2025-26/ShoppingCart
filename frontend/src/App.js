@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = process.env.BACKEND_URL || 'http://localhost:4000/api';
+const PORT = process.env.PORT;  
 
 function App() {
   const [currentView, setCurrentView] = useState('products');
