@@ -7,6 +7,8 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "start-subscriber": "node subscribers/runOrdersSubscriber.js",
+    "start-notifications-subscriber": "node subscribers/runNotificationsSubscriber.js",
+    "start-inventory-subscriber": "node subscribers/runInventorySubscriber.js",
     "publish-test": "node scripts/publishTest.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

@@ -254,6 +254,23 @@ app.post('/api/checkout', async (req, res) => {
       }));
       
       if (problems.length > 0) {
+        // Best-effort: publish an order.failed event so other services can react
+        (async () => {
+          try {
+            const failedEvent = {
+              event: 'order.failed',
+              reason: 'stock_issues',
+              details: problems,
+              cart: cartWithProducts,
+              timestamp: Date.now()
+            };
+            await publish('orders', failedEvent);
+            console.log('Published order.failed event');
+          } catch (err) {
+            console.error('Failed to publish order.failed event:', err);
+          }
+        })();
+
         return res.status(409).json({ error: 'Stock issues', details: problems });
       }
 
@@ -266,12 +283,27 @@ app.post('/api/checkout', async (req, res) => {
           try {
             const subtotal = cartWithProducts.reduce((s, p) => s + (p.quantity * (p.price || 0)), 0);
             const orderEvent = {
+              event: 'order.created',
               orderId: Date.now(),
               items: cartWithProducts.map(p => ({ id: p.id, quantity: p.quantity })),
-              total: subtotal
+              total: subtotal,
+              timestamp: Date.now()
             };
             await publish('orders', orderEvent);
             console.log('Published order.created event');
+
+            // Also publish a stock.updated notification so inventory/notification services can react
+            try {
+              const stockEvent = {
+                event: 'stock.updated',
+                items: cartWithProducts.map(p => ({ id: p.id, quantity: p.quantity })),
+                timestamp: Date.now()
+              };
+              await publish('notifications', stockEvent);
+              console.log('Published stock.updated notification');
+            } catch (err2) {
+              console.error('Failed to publish stock.updated notification:', err2);
+            }
           } catch (err) {
             console.error('Failed to publish order event:', err);
           }
