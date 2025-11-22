@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # --- BACKEND SERVICES ---
   backend:
     build: ./backend
     container_name: backend_service
@@ -15,14 +16,6 @@ services:
     depends_on:
       - pubsub-emulator
 
-  frontend:
-    build: ./frontend
-    container_name: frontend_service
-    ports:
-      - "3000:80"
-    depends_on:
-      - backend
-
   pubsub-emulator:
     image: dipjyotimetia/pubsub-emulator:latest
     container_name: pubsub-emulator
@@ -33,8 +26,8 @@ services:
       - PUBSUB_PORT=8085
       - DASHBOARD_PORT=8080
     ports:
-      - "8085:8085"  # emulator API
-      - "8081:8080"  # dashboard (host:container) -> remapped to avoid host port collision
+      - "8085:8085"
+      - "8081:8080"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8085/ || exit 1"]
       interval: 10s
@@ -82,6 +75,49 @@ services:
     depends_on:
       - pubsub-emulator
     restart: on-failure
+
+  # --- MICRO-FRONTEND SERVICES (Replaces old 'frontend') ---
+  
+  host:
+    container_name: mips_host
+    build:
+      context: ./MIPS-Frontend-main/mips_host
+      dockerfile: Dockerfile
+    command: pnpm dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./MIPS-Frontend-main/mips_host:/app
+      - /app/node_modules
+    environment:
+      # Points to the backend API
+      - REACT_APP_BACKEND_URL=http://localhost:4000/api
+    depends_on:
+      - backend
+
+  product-page:
+    container_name: mips_product_page
+    build:
+      context: ./MIPS-Frontend-main/mips_product_page
+      dockerfile: Dockerfile
+    command: pnpm dev
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./MIPS-Frontend-main/mips_product_page:/app
+      - /app/node_modules
+
+  shopping-cart:
+    container_name: mips_shopping_cart
+    build:
+      context: ./MIPS-Frontend-main/mips_shopping_cart
+      dockerfile: Dockerfile
+    command: pnpm dev
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./MIPS-Frontend-main/mips_shopping_cart:/app
+      - /app/node_modules
 
 volumes:
   backend_node_modules:
