@@ -72,7 +72,7 @@ const ProductPage = ({ onAddToCart = () => {} }: ProductPageProps) => {
         borderRadius: "8px",
         bgcolor: "background.paper",
         color: "text.primary",
-        maxWidth: "1200px", // Increased width for grid
+        maxWidth: "1200px", 
         my: "1rem",
         textAlign: "left",
       }}
@@ -100,7 +100,7 @@ const ProductPage = ({ onAddToCart = () => {} }: ProductPageProps) => {
           gap: "1.5rem",
         }}
       >
-        {/* FIXED: Changed dummyProducts.map to products.map */}
+        
         {products.map((product) => (
           <Card
             key={product.id}
@@ -111,7 +111,7 @@ const ProductPage = ({ onAddToCart = () => {} }: ProductPageProps) => {
               flexDirection: "column",
             }}
           >
-             {/* Optional: Render image if it exists */}
+             
              {product.image && (
               <Box 
                 component="img" 
@@ -131,7 +131,6 @@ const ProductPage = ({ onAddToCart = () => {} }: ProductPageProps) => {
               </Typography>
 
               <Typography variant="body1" sx={{ mb: 1, fontWeight: "bold", color: "primary.main" }}>
-                {/* FIXED: formatting price from cents to dollars */}
                 ${(product.price / 100).toFixed(2)}
               </Typography>
               

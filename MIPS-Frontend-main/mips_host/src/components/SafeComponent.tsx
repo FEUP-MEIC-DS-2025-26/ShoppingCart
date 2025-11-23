@@ -36,7 +36,7 @@ class SafeComponent extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      // 2. Render a nice MUI-styled fallback UI
+      
       return (
         <Box
           sx={{
