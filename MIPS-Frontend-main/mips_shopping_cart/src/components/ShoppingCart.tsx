@@ -6,7 +6,7 @@ import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
-import DeleteIcon from "@mui/icons-material/Delete"; // Make sure to install if missing
+import DeleteIcon from "@mui/icons-material/Delete"; 
 
 export interface Product {
   id: string;
@@ -29,8 +29,6 @@ const ShoppingCartPage = ({
   onRemoveFromCart = () => {},
 }: ShoppingCartPageProps) => {
   
-  // 1. GROUP ITEMS BY PRODUCT ID
-  // We transform the flat list [A, B, A, A] into groups { A: [A,A,A], B: [B] }
   const groupedItems = useMemo(() => {
     const groups = new Map<string, CartItem[]>();
     
@@ -79,7 +77,7 @@ const ShoppingCartPage = ({
         ) : (
           <List sx={{ padding: 0 }}>
             {groupedItems.map((group) => {
-              // Get the first item to display name/price
+              
               const representative = group[0];
               const quantity = group.length;
               const product = representative.product;
@@ -98,7 +96,7 @@ const ShoppingCartPage = ({
                     alignItems: "center"
                   }}
                 >
-                  {/* LEFT: Item Details */}
+                  
                   <Box>
                     <Typography variant="h6" component="h4" sx={{ fontWeight: "bold" }}>
                       {product.name}
@@ -108,7 +106,7 @@ const ShoppingCartPage = ({
                     </Typography>
                   </Box>
 
-                  {/* CENTER: Quantity Badge */}
+                
                   <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                     <Box 
                         sx={{ 
@@ -124,13 +122,12 @@ const ShoppingCartPage = ({
                     </Box>
                   </Box>
 
-                  {/* RIGHT: Totals & Action */}
+                 
                   <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                     <Typography variant="h6" sx={{ fontWeight: "bold", minWidth: "80px", textAlign: "right" }}>
                        ${(lineTotal / 100).toFixed(2)}
                     </Typography>
 
-                    {/* REMOVE BUTTON (Removes 1 Instance) */}
                     <Button
                       variant="outlined"
                       color="error"
