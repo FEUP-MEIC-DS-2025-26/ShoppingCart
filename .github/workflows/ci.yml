@@ -27,4 +27,16 @@ jobs:
       - run: npm ci --prefix backend
       - run: npm run proto:build --prefix backend
       - run: npm run proto:check --prefix backend
-      - run: npm --prefix MIPS-Frontend-main/mips_host ci && npm --prefix MIPS-Frontend-main/mips_host run build
+      - name: Install & build frontend
+        run: |
+          # If the frontend uses pnpm (pnpm-lock.yaml present) prefer pnpm via corepack
+          if [ -f "MIPS-Frontend-main/mips_host/pnpm-lock.yaml" ]; then
+            corepack enable
+            corepack prepare pnpm@latest --activate
+            pnpm --prefix MIPS-Frontend-main/mips_host install
+            pnpm --prefix MIPS-Frontend-main/mips_host run build
+          else
+            # Fallback to npm install if no lockfile exists for `npm ci`
+            npm --prefix MIPS-Frontend-main/mips_host install
+            npm --prefix MIPS-Frontend-main/mips_host run build
+          fi
