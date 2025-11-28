@@ -66,6 +66,26 @@ npm run init-pubsub
 npm run publish-test
 ```
 
+Proto toolchain (build instructions)
+
+We use `protobufjs` (pbjs/pbts) to generate JS + TypeScript declarations without requiring `protoc`.
+
+Proto files are canonical in the repository root `proto/` (shared across services). From `backend/` run:
+
+```bash
+# install dev deps (one-time)
+npm install
+
+# generate JS + .d.ts into `backend/src/gen`
+npm run proto:build
+
+# clean generated artifacts
+npm run proto:clean
+```
+
+Recommendation: do not commit generated `src/gen` files — generate in CI as part of the build. If your team prefers to commit generated artifacts to reduce friction, document that choice explicitly in this file.
+
+
 Troubleshooting
 - If you see `ALREADY_EXISTS` during init: that's fine — the script is idempotent and will handle it.
 - If a subscriber reports `Resource not found (resource=orders-sub)`, ensure `PUBSUB_EMULATOR_HOST` is exported in the environment where the subscriber runs and re-run `npm run init-pubsub`.
