@@ -9,4 +9,12 @@ export default defineConfig([
   { files: ["**/*.js"], languageOptions: { sourceType: "commonjs" } },
   tseslint.configs.recommended,
   pluginReact.configs.flat.recommended,
+  // Backend-specific rule overrides: allow CommonJS require() usage and ignore generated artifacts.
+  {
+    files: ["**/*.{js,mjs,cjs,ts,jsx,tsx}"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+      "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }]
+    }
+  }
 ]);
