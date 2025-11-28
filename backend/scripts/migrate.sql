@@ -22,3 +22,13 @@ CREATE TABLE IF NOT EXISTS cart_items (
 
 -- indexes
 CREATE INDEX IF NOT EXISTS idx_cart_items_cart_id ON cart_items(cart_id);
+
+-- items table: store product snapshots from Jumpseller
+CREATE TABLE IF NOT EXISTS items (
+  id TEXT PRIMARY KEY,
+  name TEXT,
+  price BIGINT,
+  stock INTEGER,
+  metadata JSONB,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
