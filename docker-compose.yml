@@ -13,6 +13,9 @@ services:
     environment:
       # You can add database URLs or other secrets here
       - NODE_ENV=production
+      - DATABASE_URL=postgresql://devuser:devpass@db:5432/cartdb
+    depends_on:
+      - db
 
   pubsub-emulator:
     image: dipjyotimetia/pubsub-emulator:latest
@@ -73,6 +76,21 @@ services:
     depends_on:
       - pubsub-emulator
     restart: on-failure
+
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    environment:
+      - POSTGRES_USER=devuser
+      - POSTGRES_PASSWORD=devpass
+      - POSTGRES_DB=cartdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # --- MICRO-FRONTEND SERVICES (Replaces old 'frontend') ---
   
