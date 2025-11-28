@@ -28,6 +28,11 @@ jobs:
         run: |
           npm run proto:build
 
+      - name: Check generated proto artifact
+        working-directory: backend
+        run: |
+          npm run proto:check
+
       - name: Run backend tests
         working-directory: backend
         run: |
