@@ -4,7 +4,7 @@ let proto = null;
 
 try {
   // Load generated protobuf classes
-  proto = require('../gen/shopping_cart.js');
+  proto = require('../src/gen/shopping_cart.js');
 
   // Init PubSub client
   const { PubSub } = require('@google-cloud/pubsub');
@@ -50,7 +50,7 @@ async function publishShoppingCart(wrapper) {
       const topic = pubsubClient.topic('shopping_cart');
 
       // Serialize protobuf → binary buffer
-      const buffer = proto.ShoppingCartWrapper.encode(wrapper).finish();
+      const buffer = proto.priv_msgs.v1.ShoppingCartWrapper.encode(wrapper).finish();
 
       // Publish with retries
       const maxRetries = 3;
