@@ -1,4 +1,4 @@
-const { publishShoppingCart } = require('../events/pubsubPublisher');
+const { publishShoppingCart } = require('../events/pubsubPublisher.js');
 
 publishShoppingCart({
   cartId: "123",
@@ -6,3 +6,5 @@ publishShoppingCart({
 })
   .then(id => console.log("Message sent:", id))
   .catch(err => console.error("Error:", err));
+
+  
