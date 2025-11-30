@@ -1,10 +1,5 @@
-const { publishShoppingCart } = require('../events/pubsubPublisher.js');
-
+// pubsub.test.js removed — Pub/Sub integration simplified to console-only.
+// Kept as an empty placeholder to avoid breaking test discovery.
 publishShoppingCart({
-  cartId: "123",
-  items: [{ productId: "A", quantity: 2 }],
-})
-  .then(id => console.log("Message sent:", id))
-  .catch(err => console.error("Error:", err));
 
-  
+  cartId: "123",

@@ -3,6 +3,8 @@ const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
 
+// Postgres-backed DB module (legacy sqlite removed)
+
 // Create PostgreSQL connection pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -36,6 +38,11 @@ async function migrate() {
 
   const migrationPath = path.join(__dirname, '../scripts/migrate.sql');
   const sql = fs.readFileSync(migrationPath, 'utf8');
+
+  if (!process.env.DATABASE_URL) {
+    console.warn('[db] DATABASE_URL not set — skipping Postgres migrations (set DATABASE_URL for PostgreSQL)');
+    return;
+  }
 
   try {
     await pool.query(sql);
@@ -161,6 +168,14 @@ async function getCart(cart_id) {
   }
 }
 
+function cryptoRandomId() {
+  try {
+    return require('crypto').randomUUID();
+  } catch (e) {
+    return `id_${Date.now()}`;
+  }
+}
+
 module.exports = {
   pool,
   query,
@@ -168,3 +183,4 @@ module.exports = {
   upsertCart,
   getCart
 };
+

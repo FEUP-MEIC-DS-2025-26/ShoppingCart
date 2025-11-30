@@ -1,52 +1,21 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { db, initDb } = require('./db');
+const db = require('./src/db');
 const productService = require('./productService');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Webhooks (mounted after json/raw middleware as needed)
-const webhooksRouter = require('./src/routes/webhooks');
-app.use('/api/webhooks', webhooksRouter);
+// Webhooks removed: product webhook handling and Pub/Sub integration
+// Use external productService endpoints instead. Webhook routes and tests were removed
+// as this service no longer ingests product updates directly.
 
-// Also mount a direct webhook endpoint for reliability in this branch (raw JSON body)
-const { upsertProductFromJumpseller } = require('./db');
-const { publish } = require('./events/pubsubPublisher');
-const { validateHmac } = require('./src/lib/hmac');
-
-app.post('/api/webhooks/jumpseller', express.raw({ type: '*/*' }), async (req, res) => {
-  const raw = req.body;
-  const sig = req.get('X-Jumpseller-Signature') || req.get('X-Hub-Signature') || req.get('X-Signature');
-  const secret = process.env.JUMPSELLER_SECRET;
-
-  if (secret) {
-    const ok = validateHmac(raw, secret, sig);
-    if (!ok) return res.status(401).json({ error: 'invalid signature' });
-  }
-
-  let payload;
-  try {
-    payload = JSON.parse(raw.toString('utf8'));
-  } catch (e) {
-    return res.status(400).json({ error: 'invalid json' });
-  }
-
-  try {
-    const product = payload.product || payload;
-    await upsertProductFromJumpseller(product);
-    await publish(process.env.PUBSUB_TOPIC_PRODUCT_UPDATES || 'product_updates', product);
-    return res.status(204).end();
-  } catch (err) {
-    console.error('Webhook handling error (index):', err);
-    return res.status(500).json({ error: 'failed to process webhook' });
-  }
-});
-
-// Initialize database when server starts
-initDb();
+// Initialize/migrate database when server starts (Postgres)
+if (db && typeof db.migrate === 'function') {
+  db.migrate().catch(err => console.error('DB migrate failed on startup:', err));
+}
 
 // Note: this backend uses the external product API (Jumpseller) as the single source of truth
 // for product data. Cart storage keeps item_id and quantity, but product details are always
