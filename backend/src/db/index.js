@@ -36,16 +36,34 @@ async function query(text, params) {
 async function migrate() {
   console.log('[db] Running migrations...');
 
-  const migrationPath = path.join(__dirname, '../scripts/migrate.sql');
-  const sql = fs.readFileSync(migrationPath, 'utf8');
-
   if (!process.env.DATABASE_URL) {
     console.warn('[db] DATABASE_URL not set — skipping Postgres migrations (set DATABASE_URL for PostgreSQL)');
     return;
   }
 
+  const migrationsDir = path.join(__dirname, '../scripts/migrations');
+  const singleMigrationPath = path.join(__dirname, '../scripts/migrate.sql');
+
   try {
-    await pool.query(sql);
+    if (fs.existsSync(migrationsDir)) {
+      const files = fs.readdirSync(migrationsDir)
+        .filter(f => f.endsWith('.sql'))
+        .sort();
+
+      for (const file of files) {
+        const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+        console.log(`[db] Applying migration ${file}`);
+        await pool.query(sql);
+      }
+      console.log('[db] All migrations in scripts/migrations applied');
+    } else if (fs.existsSync(singleMigrationPath)) {
+      const sql = fs.readFileSync(singleMigrationPath, 'utf8');
+      await pool.query(sql);
+      console.log('[db] migrate.sql applied');
+    } else {
+      console.log('[db] No migrations found (scripts/migrations/ or migrate.sql)');
+    }
+
     console.log('[db] Migrations completed successfully');
   } catch (error) {
     console.error('[db] Migration failed:', error);
