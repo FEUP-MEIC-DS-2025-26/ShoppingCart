@@ -6,16 +6,17 @@ services:
     build: ./backend
     container_name: backend_service
     ports:
-      # Maps your computer's port 5000 to the container's port 5000
+      # Maps your computer's port 4000 to the container's port 4000
       - "4000:4000"
     env_file:
       - ./backend/.env
     environment:
       # You can add database URLs or other secrets here
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://devuser:devpass@db:5432/cartdb
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/cartdb
     depends_on:
       - db
+<<<<<<< HEAD
 
   pubsub-emulator:
     image: dipjyotimetia/pubsub-emulator:latest
@@ -77,23 +78,31 @@ services:
       - pubsub-emulator
     restart: on-failure
 
+=======
+>>>>>>> pubsub-publisher-pr6
   db:
     image: postgres:15
     container_name: postgres_db
     environment:
-      - POSTGRES_USER=devuser
-      - POSTGRES_PASSWORD=devpass
+      - PGUSER=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=cartdb
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
+<<<<<<< HEAD
       test: [ "CMD-SHELL", "pg_isready -U devuser" ]
+=======
+      test: [ "CMD-SHELL", "pg_isready -d cartdb -U postgres" ]
+>>>>>>> pubsub-publisher-pr6
       interval: 10s
       timeout: 5s
       retries: 5
 
+<<<<<<< HEAD
   # --- MICRO-FRONTEND SERVICES (Replaces old 'frontend') ---
 
   host:
@@ -125,16 +134,17 @@ services:
       - ./MIPS-Frontend-main/mips_product_page:/app
       - /app/node_modules
 
+=======
+>>>>>>> pubsub-publisher-pr6
   shopping-cart:
     container_name: mips_shopping_cart
     build:
-      context: ./MIPS-Frontend-main/mips_shopping_cart
+      context: ./MIPS-frontend
       dockerfile: Dockerfile
-    command: pnpm dev
     ports:
-      - "3002:3002"
+      - "3000:3000"
     volumes:
-      - ./MIPS-Frontend-main/mips_shopping_cart:/app
+      - ./MIPS-frontend:/app
       - /app/node_modules
 
 volumes:
