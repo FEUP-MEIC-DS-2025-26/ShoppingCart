@@ -107,7 +107,7 @@ async function publishShoppingCartWrapper(cart) {
 router.post('/:userId', async (req, res) => {
   const { userId } = req.params;
   const { itemId, sku, name, priceCents, quantity, metadata } = req.body;
-  if (!Number.isInteger(quantity) || quantity < 1) return res.status(400).json({ error: 'Invalid quantity' });
+  if (!Number.isInteger(quantity) || quantity < 1) return res.status(400).json({ error: 'Invalid quantity for post' });
 
   try {
     await pgdb.query(`INSERT INTO CartItem (userId, itemId, sku, name, priceCents, quantity)
@@ -124,7 +124,7 @@ router.post('/:userId', async (req, res) => {
 router.put('/:userId/:itemId', async (req, res) => {
   const { userId, itemId } = req.params;
   const { quantity } = req.body;
-  if (!Number.isInteger(quantity) || quantity < 0) return res.status(400).json({ error: 'Invalid quantity' });
+  if (!Number.isInteger(quantity) || quantity < 0) return res.status(400).json({ error: 'Invalid quantity for put' });
   if (quantity === 0) {
     const userId = itemId;
     await pgdb.query('DELETE FROM CartItem WHERE userId = $1 AND itemId = $2', [userId, itemId]);
@@ -154,30 +154,23 @@ router.delete('/:userId/:itemId', async (req, res) => {
 
 // POST /api/cart/checkout
 router.post('/checkout', async (req, res) => {
-  const { address, cartId } = req.body;
+  const { userId } = req.body;
 
-  if (!address || !address.line1) {
+  if (!userId) {
     return res.status(400).json({
-      error: 'Invalid address',
-      actionable: 'Provide a valid shipping address'
-    });
-  }
-
-  if (!cartId) {
-    return res.status(400).json({
-      error: 'cartId is required',
-      actionable: 'Provide a cartId to checkout'
+      error: 'userId is required',
+      actionable: 'Provide a userId to checkout'
     });
   }
 
   try {
     // Get the full cart details
-    const cart = await getCart(cartId);
+    const cart = await getCart(userId);
 
     if (!cart) {
       return res.status(404).json({
         error: 'Cart not found',
-        actionable: 'Provide a valid cartId'
+        actionable: 'Provide a valid userId'
       });
     }
 
@@ -189,7 +182,7 @@ router.post('/checkout', async (req, res) => {
     }
 
     // Validate products exist and stock is available
-    let products;
+    /*let products;
     try {
       products = await productService.getProducts();
     } catch (e) {
@@ -223,6 +216,7 @@ router.post('/checkout', async (req, res) => {
       };
     });
     /*
+    /*
      const problems = cartWithProducts
        .filter(r => r.quantity > r.stock)
        .map(r => ({
@@ -246,7 +240,6 @@ router.post('/checkout', async (req, res) => {
       eventType: 'CHECKOUT_ATTEMPT',
       timestamp: new Date().toISOString(),
       userId: cart.userId,
-      address: address,
       totalPriceCents: cart.totalPriceCents,
       currency: cart.currency
     };
@@ -255,7 +248,7 @@ router.post('/checkout', async (req, res) => {
       console.error('[checkout] Failed to publish CHECKOUT_ATTEMPT:', err)
     );
 
-    console.log(`[checkout] Published CHECKOUT_ATTEMPT for cart ${cart.cartId}`);
+    console.log(`[checkout] Published CHECKOUT_ATTEMPT for user ${cart.userId}`);
 
     const paymentSuccess = 1;
 
@@ -266,29 +259,26 @@ router.post('/checkout', async (req, res) => {
         eventType: 'CHECKOUT_SUCCESS',
         timestamp: new Date().toISOString(),
         userId: cart.userId,
-        orderId: crypto.randomUUID(),
         totalPriceCents: cart.totalPriceCents,
         currency: cart.currency,
-        address: address
       };
 
       await publish('checkout-events', checkoutSuccessEvent).catch(err =>
         console.error('[checkout] Failed to publish CHECKOUT_SUCCESS:', err)
       );
 
-      console.log(`[checkout] Published CHECKOUT_SUCCESS for cart ${cart.cartId}`);
+      console.log(`[checkout] Published CHECKOUT_SUCCESS for user ${cart.userId}`);
 
       // Clear cart from database
       if (pgdb && pgdb.pool) {
-        await pgdb.query('DELETE FROM CartItem WHERE cartId = $1', [cartId]);
+        await pgdb.query('DELETE FROM CartItem WHERE userId = $1', [userId]);
         await pgdb.query('DELETE FROM Cart WHERE userId = $1', [userId]);
-        console.log(`[checkout] Cleared cart ${cartId} from database`);
+        console.log(`[checkout] Cleared cart from user ${userId} from database`);
       }
 
       return res.json({
         success: true,
         message: 'Order confirmed',
-        orderId: checkoutSuccessEvent.orderId
       });
 
     } else {
@@ -297,7 +287,6 @@ router.post('/checkout', async (req, res) => {
         eventId: crypto.randomUUID(),
         eventType: 'CHECKOUT_FAILED',
         timestamp: new Date().toISOString(),
-        cartId: cart.cartId,
         userId: cart.userId,
         reason: 'Payment gateway error',
         totalPriceCents: cart.totalPriceCents,
@@ -308,7 +297,7 @@ router.post('/checkout', async (req, res) => {
         console.error('[checkout] Failed to publish CHECKOUT_FAILED:', err)
       );
 
-      console.log(`[checkout] Published CHECKOUT_FAILED for cart ${cart.cartId}`);
+      console.log(`[checkout] Published CHECKOUT_FAILED for user ${cart.userId}`);
 
       return res.status(402).json({
         success: false,
@@ -326,7 +315,7 @@ router.post('/checkout', async (req, res) => {
         eventId: crypto.randomUUID(),
         eventType: 'CHECKOUT_FAILED',
         timestamp: new Date().toISOString(),
-        cartId: cartId,
+        user: cart.userId,
         reason: 'Internal server error',
         error: err.message
       };
