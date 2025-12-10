@@ -107,6 +107,7 @@ async function publishShoppingCartWrapper(cart) {
 router.post('/:userId', async (req, res) => {
   const { userId } = req.params;
   const { itemId, sku, name, priceCents, quantity, metadata } = req.body;
+  console.log("the things are:", { itemId, sku, name, priceCents, quantity, metadata, userId });
   if (!Number.isInteger(quantity) || quantity < 1) return res.status(400).json({ error: 'Invalid quantity for post' });
 
   try {
@@ -153,8 +154,8 @@ router.delete('/:userId/:itemId', async (req, res) => {
 });
 
 // POST /api/cart/checkout
-router.post('/checkout', async (req, res) => {
-  const { userId } = req.body;
+router.post('/checkout/:userId', async (req, res) => {
+  const { userId } = req.params;
 
   if (!userId) {
     return res.status(400).json({
