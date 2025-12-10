@@ -45,16 +45,9 @@ const ShoppingCartPage = ({
           // Test data for now
           setCart({
             userId: 1,
-            totalPriceCents: 2200,
+            totalPriceCents: 0,
             currency: 'USD',
-            items: [{
-              itemId: 1,
-              sku: 'abc',
-              name: 'banana',
-              priceCents: 110,
-              quantity: 20,
-              metadata: null,
-            }]
+            items: []
           })
           return;
         }

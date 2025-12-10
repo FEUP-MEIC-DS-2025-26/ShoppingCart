@@ -236,6 +236,7 @@ router.post('/checkout/:userId', async (req, res) => {
      }
   */
     // Publish CHECKOUT_ATTEMPT event
+  /*
     const checkoutAttemptEvent = {
       eventId: crypto.randomUUID(),
       eventType: 'CHECKOUT_ATTEMPT',
@@ -250,12 +251,13 @@ router.post('/checkout/:userId', async (req, res) => {
     );
 
     console.log(`[checkout] Published CHECKOUT_ATTEMPT for user ${cart.userId}`);
-
+*/
     const paymentSuccess = 1;
 
     if (paymentSuccess) {
       // Publish CHECKOUT_SUCCESS event
-      const checkoutSuccessEvent = {
+/*
+        const checkoutSuccessEvent = {
         eventId: crypto.randomUUID(),
         eventType: 'CHECKOUT_SUCCESS',
         timestamp: new Date().toISOString(),
@@ -269,20 +271,28 @@ router.post('/checkout/:userId', async (req, res) => {
       );
 
       console.log(`[checkout] Published CHECKOUT_SUCCESS for user ${cart.userId}`);
-
+*/
       // Clear cart from database
-      if (pgdb && pgdb.pool) {
+      try {
         await pgdb.query('DELETE FROM CartItem WHERE userId = $1', [userId]);
         await pgdb.query('DELETE FROM Cart WHERE userId = $1', [userId]);
         console.log(`[checkout] Cleared cart from user ${userId} from database`);
-      }
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Error in cart DELETE:', err);
+    return res.status(500).json({ error: 'Failed to remove cart' });
+  }
 
       return res.json({
         success: true,
         message: 'Order confirmed',
       });
 
-    } else {
+    }
+    
+    /*
+    else {
+      
       // Publish CHECKOUT_FAILED event
       const checkoutFailedEvent = {
         eventId: crypto.randomUUID(),
@@ -306,6 +316,7 @@ router.post('/checkout/:userId', async (req, res) => {
         actionable: 'Please try again or use a different payment method'
       });
     }
+      */
 
   } catch (err) {
     console.error('Error in checkout:', err);
