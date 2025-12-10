@@ -211,12 +211,11 @@ const ShoppingCartPage = ({
                         }}
                         onClick={() => {
                           // Edit Metadata button (for demo purposes, we just set a static value)
-                          fetch(`${BACKEND_URL}/api/cart/checkout`, {
+                          fetch(`${BACKEND_URL}/api/cart/checkout/${cart.userId}`, {
                             method: 'POST',
                             headers: {
                               'Content-Type': 'application/json',
                             },
-                            body: JSON.stringify({ userId: cart.userId })
                           });
                         }}
                       >
@@ -268,7 +267,7 @@ const ShoppingCartPage = ({
                 onClick={async () => {
                   setCheckoutLoading(true);
                   try {
-                    const res = await fetch(`${BACKEND_URL}/api/cart/checkout`, {
+                    const res = await fetch(`${BACKEND_URL}/api/cart/checkout/${cart.userId}`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
