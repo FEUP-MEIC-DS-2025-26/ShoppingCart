@@ -23,5 +23,9 @@ ENV HOST=0.0.0.0
 # Expose your dev server port (Rsbuild default is 3000)
 EXPOSE 3000
 
+ENV BACKEND_URL="https://api.madeinportugal.store"
+
+RUN pnpm build
+
 # Start the server
-CMD ["pnpm", "dev"]
+CMD ["pnpm", "preview"]

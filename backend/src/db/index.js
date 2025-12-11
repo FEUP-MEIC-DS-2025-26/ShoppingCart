@@ -7,7 +7,7 @@ const path = require('path');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  connectionTimeoutMillis: 5000, // 5s\
+  connectionTimeoutMillis: 5000, // 5s
 });
 
 pool.on('connect', () => {
