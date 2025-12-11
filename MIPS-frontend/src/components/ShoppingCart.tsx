@@ -252,7 +252,6 @@ const ShoppingCartPage = ({
                 Total: ${(cart.totalPriceCents / 100).toFixed(2)}
               </Typography>
               <Divider sx={{ my: 2 }} />
-              <Typography variant="h6">Checkout</Typography>
               <Button
                 variant="contained"
                 color="primary"
