@@ -28,7 +28,7 @@ interface ShoppingCartPageProps {
   userId: number;
 }
 
-const BACKEND_URL = 'http://localhost:4000';
+const BACKEND_URL = import.meta.env.BACKEND_URL ?? 'http://localhost:4000';
 
 const ShoppingCartPage = ({
   userId

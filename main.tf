@@ -21,23 +21,6 @@ resource "google_project_service" "run" {
   service = "run.googleapis.com"
 }
 
-resource "google_project_service" "artifact_registry" {
-  service = "artifactregistry.googleapis.com"
-}
-
-# ------------------------------------------------------------
-# Artifact Registry (must exist BEFORE pushing images)
-# ------------------------------------------------------------
-resource "google_artifact_registry_repository" "repo" {
-  location      = var.region
-  repository_id = "app-repo"
-  format        = "DOCKER"
-
-  depends_on = [
-    google_project_service.artifact_registry
-  ]
-}
-
 # ------------------------------------------------------------
 # Backend Cloud Run Service
 # ------------------------------------------------------------
@@ -57,7 +40,7 @@ resource "google_cloud_run_service" "backend" {
   template {
     spec {
       containers {
-        image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.repo.repository_id}/backend:latest"
+        image = "${var.region}-docker.pkg.dev/${var.project_id}/app-repo/backend:latest"
 
         ports {
           container_port = 4000
@@ -103,7 +86,7 @@ resource "google_cloud_run_service" "frontend" {
   template {
     spec {
       containers {
-        image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.repo.repository_id}/frontend:latest"
+        image = "${var.region}-docker.pkg.dev/${var.project_id}/app-repo/frontend:latest"
         ports {
           container_port = 3000
         }
