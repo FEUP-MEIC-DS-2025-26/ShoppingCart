@@ -5,6 +5,7 @@ const { upsertCart, getCart } = require('../db');
 const productService = require('../../productService');
 const { pool: pgdb } = require('../db');
 const { publish, publishShoppingCart } = require('../events/pubsubPublisher');
+const { authenticateToken } = require('../middleware/auth');
 
 // GET /api/cart/:userId -> get specific cart by ID
 router.get('/:userId', async (req, res) => {
@@ -153,8 +154,8 @@ router.delete('/:userId/:itemId', async (req, res) => {
   }
 });
 
-// POST /api/cart/checkout
-router.post('/checkout/:userId', async (req, res) => {
+// POST /api/cart/checkout - requires JWT authentication
+router.post('/checkout/:userId', authenticateToken, async (req, res) => {
   const { userId } = req.params;
 
   if (!userId) {
@@ -236,62 +237,54 @@ router.post('/checkout/:userId', async (req, res) => {
      }
   */
     // Publish CHECKOUT_ATTEMPT event
-  /*
     const checkoutAttemptEvent = {
       eventId: crypto.randomUUID(),
       eventType: 'CHECKOUT_ATTEMPT',
       timestamp: new Date().toISOString(),
       userId: cart.userId,
       totalPriceCents: cart.totalPriceCents,
-      currency: cart.currency
+      currency: cart.currency,
+      items: cart.items
     };
 
-    await publish('checkout-events', checkoutAttemptEvent).catch(err =>
+    publish('checkout-events', checkoutAttemptEvent).catch(err =>
       console.error('[checkout] Failed to publish CHECKOUT_ATTEMPT:', err)
     );
 
     console.log(`[checkout] Published CHECKOUT_ATTEMPT for user ${cart.userId}`);
-*/
+
     const paymentSuccess = 1;
 
     if (paymentSuccess) {
       // Publish CHECKOUT_SUCCESS event
-/*
-        const checkoutSuccessEvent = {
+      const checkoutSuccessEvent = {
         eventId: crypto.randomUUID(),
         eventType: 'CHECKOUT_SUCCESS',
         timestamp: new Date().toISOString(),
         userId: cart.userId,
         totalPriceCents: cart.totalPriceCents,
         currency: cart.currency,
+        items: cart.items
       };
 
-      await publish('checkout-events', checkoutSuccessEvent).catch(err =>
+      publish('checkout-events', checkoutSuccessEvent).catch(err =>
         console.error('[checkout] Failed to publish CHECKOUT_SUCCESS:', err)
       );
 
       console.log(`[checkout] Published CHECKOUT_SUCCESS for user ${cart.userId}`);
-*/
+
       // Clear cart from database
-      try {
-        await pgdb.query('DELETE FROM CartItem WHERE userId = $1', [userId]);
-        await pgdb.query('DELETE FROM Cart WHERE userId = $1', [userId]);
-        console.log(`[checkout] Cleared cart from user ${userId} from database`);
-    return res.json({ success: true });
-  } catch (err) {
-    console.error('Error in cart DELETE:', err);
-    return res.status(500).json({ error: 'Failed to remove cart' });
-  }
+      await pgdb.query('DELETE FROM CartItem WHERE userId = $1', [userId]);
+      await pgdb.query('DELETE FROM Cart WHERE userId = $1', [userId]);
+      console.log(`[checkout] Cleared cart from user ${userId} from database`);
 
       return res.json({
         success: true,
         message: 'Order confirmed',
+        eventId: checkoutSuccessEvent.eventId
       });
 
-    }
-    
-    /*
-    else {
+    } else {
       
       // Publish CHECKOUT_FAILED event
       const checkoutFailedEvent = {
@@ -304,7 +297,7 @@ router.post('/checkout/:userId', async (req, res) => {
         currency: cart.currency
       };
 
-      await publish('checkout-events', checkoutFailedEvent).catch(err =>
+      publish('checkout-events', checkoutFailedEvent).catch(err =>
         console.error('[checkout] Failed to publish CHECKOUT_FAILED:', err)
       );
 
@@ -316,7 +309,6 @@ router.post('/checkout/:userId', async (req, res) => {
         actionable: 'Please try again or use a different payment method'
       });
     }
-      */
 
   } catch (err) {
     console.error('Error in checkout:', err);

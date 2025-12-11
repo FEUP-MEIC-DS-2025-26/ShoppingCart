@@ -1,28 +1,36 @@
 const jwt = require('jsonwebtoken');
 
 /**
- * Middleware to extract and validate JWT token from Authorization header
- * Extracts userId from the token and attaches it to req.userId
+ * Middleware to extract and validate JWT token from cookies or Authorization header
+ * The gateway uses RS256 (RSA) algorithm with user_id field
  */
 function authenticateToken(req, res, next) {
+  // Try to get token from Authorization header first
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  let token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+  // If no Authorization header, try cookies
+  if (!token && req.cookies) {
+    token = req.cookies.token || req.cookies.jwt || req.cookies.authToken || req.cookies.access_token;
+  }
 
   if (!token) {
     return res.status(401).json({ error: 'Access token required' });
   }
 
   try {
-    // Verify the token using the secret from environment variable
-    const secret = process.env.JWT_SECRET || 'your-secret-key';
-    const decoded = jwt.verify(token, secret);
+    // For RS256, we need the public key from the gateway team
+    // TODO: Get the PUBLIC KEY from your auth/gateway team
+    const publicKey = process.env.JWT_PUBLIC_KEY || process.env.JWT_SECRET;
     
-    // Extract userId from the decoded token
-    // Adjust this based on your JWT payload structure (e.g., decoded.sub, decoded.userId, decoded.id)
-    req.userId = decoded.userId || decoded.sub || decoded.id;
+    // Verify token - RS256 algorithm (not HS256)
+    const decoded = jwt.verify(token, publicKey, { algorithms: ['RS256', 'HS256'] });
+    
+    // Extract userId - gateway uses "user_id" field (string format)
+    req.userId = decoded.user_id || decoded.userId || decoded.sub || decoded.id;
     
     if (!req.userId) {
-      return res.status(401).json({ error: 'Invalid token: userId not found' });
+      return res.status(401).json({ error: 'Invalid token: user_id not found' });
     }
     
     next();

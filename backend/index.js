@@ -1,10 +1,15 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const productService = require('./productService');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: true, // Allow all origins (adjust for production)
+  credentials: true // Allow cookies to be sent
+}));
+app.use(cookieParser()); // Parse cookies from requests
 app.use(express.json());
 
 

@@ -30,6 +30,28 @@ interface ShoppingCartPageProps {
 
 const BACKEND_URL = 'http://localhost:4000';
 
+// Function to get JWT token (adjust based on where your app stores the token)
+const getAuthToken = (): string | null => {
+  // Try localStorage first
+  const token = localStorage.getItem('authToken') || localStorage.getItem('jwt') || localStorage.getItem('token');
+  if (token) return token;
+  
+  // Try sessionStorage
+  const sessionToken = sessionStorage.getItem('authToken') || sessionStorage.getItem('jwt');
+  if (sessionToken) return sessionToken;
+  
+  // Try cookies
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === 'authToken' || name === 'jwt' || name === 'token') {
+      return value;
+    }
+  }
+  
+  return null;
+};
+
 const ShoppingCartPage = ({
   userId
 }: ShoppingCartPageProps) => {
@@ -261,17 +283,26 @@ const ShoppingCartPage = ({
                   try {
                     const res = await fetch(`${BACKEND_URL}/api/cart/checkout/${cart.userId}`, {
                       method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
+                      headers: { 
+                        'Content-Type': 'application/json'
+                      },
+                      credentials: 'include', // Automatically send cookies from .madeinportugal.store domain
                       body: JSON.stringify({
                         userId: cart.userId
                       }),
                     });
                     const data = await res.json();
                     if (res.ok) {
-                      alert(`Checkout successful!`);
-                      updateCart();
+                      // Redirect to delivery choice page
+                      window.location.href = 'https://frontend.madeinportugal.store/delivery-choice';
                     } else {
-                      alert(`Checkout failed: ${data.error}`);
+                      if (res.status === 401 || res.status === 403) {
+                        // Not authenticated - redirect to login
+                        alert('Please log in to checkout');
+                        window.location.href = 'https://frontend.madeinportugal.store/auth';
+                      } else {
+                        alert(`Checkout failed: ${data.error}`);
+                      }
                     }
                   } catch (error) {
                     alert('Network error during checkout');
