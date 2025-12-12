@@ -2,6 +2,7 @@
   "name": "mips_shopping_cart",
   "private": true,
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
     "dev": "rsbuild dev --open",
     "build": "rsbuild build",

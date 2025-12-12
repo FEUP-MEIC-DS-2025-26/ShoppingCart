@@ -3,7 +3,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const { upsertCart, getCart } = require('../db');
 const productService = require('../../productService');
-const { pool: pgdb } = require('../db');
+const pgdb = require('../db');
 const { publish, publishShoppingCart } = require('../events/pubsubPublisher');
 
 // GET /api/cart/:userId -> get specific cart by ID
@@ -279,11 +279,8 @@ router.post('/checkout', async (req, res) => {
       console.log(`[checkout] Published CHECKOUT_SUCCESS for cart ${cart.cartId}`);
 
       // Clear cart from database
-      if (pgdb && pgdb.pool) {
-        await pgdb.query('DELETE FROM CartItem WHERE cartId = $1', [cartId]);
-        await pgdb.query('DELETE FROM Cart WHERE userId = $1', [userId]);
-        console.log(`[checkout] Cleared cart ${cartId} from database`);
-      }
+      await pgdb.query('DELETE FROM CartItem WHERE cartId = $1', [cartId]);
+      await pgdb.query('DELETE FROM Cart WHERE userId = $1', [userId]);
 
       return res.json({
         success: true,

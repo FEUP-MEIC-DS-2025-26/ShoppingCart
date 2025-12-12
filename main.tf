@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 6.0"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.9.0"
+    }
   }
 
   required_version = ">= 1.6"
@@ -31,6 +35,11 @@ locals {
     if length(trim(line, " \r\t")) > 0
     && !startswith(trim(line, " \r\t"), "#")
   ]
+}
+
+resource "time_sleep" "wait_for_run_api" {
+  depends_on = [google_project_service.run]
+  create_duration = "45s"
 }
 
 resource "google_cloud_run_service" "backend" {
@@ -72,7 +81,7 @@ resource "google_cloud_run_service" "backend" {
   autogenerate_revision_name = true
 
   depends_on = [
-    google_project_service.run
+    time_sleep.wait_for_run_api
   ]
 }
 
@@ -131,7 +140,8 @@ resource "google_cloud_run_service_iam_member" "backend_invoker" {
 # Variables
 # ------------------------------------------------------------
 variable "project_id" {
-  type = string
+  type    = string
+  default = "madeinportugal-store-ds2025"
 }
 
 variable "region" {

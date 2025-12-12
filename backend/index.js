@@ -8,8 +8,18 @@ app.use(cors());
 app.use(express.json());
 
 
+app.get('/', async (req, res) => {
+  try {
+    return res.json({"success": "cart api is running"});
+  } catch (error) {
+    console.error('Error in /api/items:', error);
+    res.status(503).json({ error: 'Product service unavailable', actionable: 'Try again later' });
+  }
+});
+
 // Webhooks (mounted after json/raw middleware as needed)
 const webhooksRouter = require('./src/routes/webhooks');
+
 app.use('/api/webhooks', webhooksRouter);
 
 // Note: this backend uses the external product API (Jumpseller) as the single source of truth
