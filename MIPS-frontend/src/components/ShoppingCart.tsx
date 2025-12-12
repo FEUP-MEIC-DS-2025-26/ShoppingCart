@@ -31,6 +31,7 @@ const ShoppingCartPage = () => {
   let userId = 1; // TODO: get from auth params
   let [loading, setLoading] = React.useState<boolean>(true);
   let [cart, setCart] = React.useState<Cart | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = React.useState(false);
 
   function updateCart() {
     fetch(`${BACKEND_URL}/api/cart/${userId}`)
@@ -40,16 +41,9 @@ const ShoppingCartPage = () => {
           // Test data for now
           setCart({
             userId: 1,
-            totalPriceCents: 2200,
+            totalPriceCents: 0,
             currency: 'USD',
-            items: [{
-              itemId: 1,
-              sku: 'abc',
-              name: 'banana',
-              priceCents: 110,
-              quantity: 20,
-              metadata: null,
-            }]
+            items: []
           })
           return;
         }
@@ -199,6 +193,25 @@ const ShoppingCartPage = () => {
                       </Typography>
 
                       <Button
+                        variant="text"
+                        sx={{
+                          minWidth: 0,
+                          p: 0.5
+                        }}
+                        onClick={() => {
+                          // Edit Metadata button (for demo purposes, we just set a static value)
+                          fetch(`${BACKEND_URL}/api/cart/checkout/${cart.userId}`, {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                          });
+                        }}
+                      >
+                        Edit
+                      </Button>
+                      
+                      <Button
                         variant="outlined"
                         sx={{
                           minWidth: 0,
@@ -234,6 +247,37 @@ const ShoppingCartPage = () => {
               >
                 Total: ${(cart.totalPriceCents / 100).toFixed(2)}
               </Typography>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="h6">Checkout</Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                disabled={checkoutLoading || !cart?.items?.length}
+                onClick={async () => {
+                  setCheckoutLoading(true);
+                  try {
+                    const res = await fetch(`${BACKEND_URL}/api/cart/checkout/${cart.userId}`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        userId: cart.userId
+                      }),
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                      alert(`Checkout successful!`);
+                      updateCart();
+                    } else {
+                      alert(`Checkout failed: ${data.error}`);
+                    }
+                  } catch (error) {
+                    alert('Network error during checkout');
+                  }
+                  setCheckoutLoading(false);
+                }}
+              >
+                {checkoutLoading ? 'Processing...' : 'Checkout'}
+              </Button>
             </>
           )}
         </>
