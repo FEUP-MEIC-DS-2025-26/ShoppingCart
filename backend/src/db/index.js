@@ -2,35 +2,61 @@ require('dotenv').config();
 const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
+const {Connector} = require('@google-cloud/cloud-sql-connector');
 
 // Create PostgreSQL connection pool
+async function getPoolFromEnv() {
+  let pool;
+  if (process.env.DB_ENV === 'local') {
+    console.log('[db] Initializing Local Pool...');
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL_LOCAL,
+      connectionTimeoutMillis: 5000,
+    });
+    console.log('[db] Local Pool Instanciated');
+  } else {
+    console.log('[db] Initializing Cloud Pool...');
+    const connector = new Connector();
+    const clientOpts = await connector.getOptions({
+      instanceConnectionName: process.env.DATABASE_URL_CLOUD,
+      authType: 'IAM'
+    });
+    console.log('[db] Cloud Pool: Got Connector');
+    
+    pool = new Pool({
+      ...clientOpts,
+      user: 'postgres',
+      password: 'postgres'
+    });
+    console.log('[db] Cloud Pool Instanciated');
+  }
+  
+  pool.on('connect', () => {
+    console.log('[db] Connected to PostgreSQL');
+  });
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  connectionTimeoutMillis: 5000, // 5s\
-});
+  pool.on('error', (err) => {
+    console.error('[db] Unexpected error on idle client', err);
+    process.exit(-1);
+  });
 
-pool.on('connect', () => {
-  console.log('[db] Connected to PostgreSQL');
-});
+  return pool;
+}
 
-pool.on('error', (err) => {
-  console.error('[db] Unexpected error on idle client', err);
-  process.exit(-1);
-});
 
 // Initialize database when server starts
-initDb();
+const poolPromise = initDb()
+  .catch(err => {
+    console.error("[db] Failed to initialize DB:", err);
+    process.exit(1);
+  });
 
 /**
  * Query wrapper for easier use
  */
 async function query(text, params) {
-  const start = Date.now();
-  const res = await pool.query(text, params);
-  const duration = Date.now() - start;
-  console.log('[db] Executed query', { text, duration, rows: res.rowCount });
-  return res;
+  const pool = await poolPromise;
+  return await pool.query(text, params);
 }
 
 /**
@@ -38,6 +64,7 @@ async function query(text, params) {
  */
 async function initDb() {
   console.log('[db] Running initialization...');
+  const pool = await getPoolFromEnv();
 
   const createDbPath = path.join(__dirname, '../scripts/create.sql');
   const sql = fs.readFileSync(createDbPath, 'utf8');
@@ -45,6 +72,7 @@ async function initDb() {
   try {
     await pool.query(sql);
     console.log('[db] Initialization completed successfully');
+    return pool;
   } catch (error) {
     console.error('[db] Initialization failed:', error);
     throw error;
@@ -55,6 +83,7 @@ async function initDb() {
  * Run database migrations
  */
 async function migrate() {
+  const pool = await poolPromise;
   console.log('[db] Running migrations...');
 
   const migrationPath = path.join(__dirname, '../scripts/create.sql');
@@ -72,6 +101,7 @@ async function migrate() {
 // Upsert a product payload from Jumpseller into the local `items` table.
 // Strategy: try to match by `external_id` (if present) or `name`. If not found, insert.
 async function upsertProductFromJumpseller(product) {
+  const pool = await poolPromise;
   const { id: externalId, title: name, price, stock } = product;
   // Normalize price: Jumpseller may send cents or float; expect cents integer or a number
   const priceInt = Number.isInteger(price) ? price : Math.round((price || 0) * 100);
@@ -105,6 +135,7 @@ async function upsertProductFromJumpseller(product) {
  * @returns {Promise<string>} - Returns the cartId
  */
 async function upsertCart(cartData) {
+  const pool = await poolPromise;
   const { userId, items, currency = 'EUR' } = cartData;
 
   const client = await pool.connect();
@@ -168,6 +199,7 @@ async function upsertCart(cartData) {
  * @returns {Promise<Object|null>} - Cart object with items, or null if not found
  */
 async function getCart(userId) {
+  const pool = await poolPromise;
   try {
     // Get cart metadata
     const cartResult = await pool.query(
@@ -209,7 +241,6 @@ async function getCart(userId) {
 }
 
 module.exports = {
-  pool,
   query,
   initDb,
   migrate,

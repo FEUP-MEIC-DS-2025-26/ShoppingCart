@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 6.0"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.9.0"
+    }
   }
 
   required_version = ">= 1.6"
@@ -21,23 +25,6 @@ resource "google_project_service" "run" {
   service = "run.googleapis.com"
 }
 
-resource "google_project_service" "artifact_registry" {
-  service = "artifactregistry.googleapis.com"
-}
-
-# ------------------------------------------------------------
-# Artifact Registry (must exist BEFORE pushing images)
-# ------------------------------------------------------------
-resource "google_artifact_registry_repository" "repo" {
-  location      = var.region
-  repository_id = "app-repo"
-  format        = "DOCKER"
-
-  depends_on = [
-    google_project_service.artifact_registry
-  ]
-}
-
 # ------------------------------------------------------------
 # Backend Cloud Run Service
 # ------------------------------------------------------------
@@ -50,6 +37,11 @@ locals {
   ]
 }
 
+resource "time_sleep" "wait_for_run_api" {
+  depends_on = [google_project_service.run]
+  create_duration = "45s"
+}
+
 resource "google_cloud_run_service" "backend" {
   name     = "backend-service"
   location = var.region
@@ -57,7 +49,7 @@ resource "google_cloud_run_service" "backend" {
   template {
     spec {
       containers {
-        image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.repo.repository_id}/backend:latest"
+        image = "${var.region}-docker.pkg.dev/${var.project_id}/app-repo/backend:latest"
 
         ports {
           container_port = 4000
@@ -89,7 +81,7 @@ resource "google_cloud_run_service" "backend" {
   autogenerate_revision_name = true
 
   depends_on = [
-    google_project_service.run
+    time_sleep.wait_for_run_api
   ]
 }
 
@@ -103,7 +95,7 @@ resource "google_cloud_run_service" "frontend" {
   template {
     spec {
       containers {
-        image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.repo.repository_id}/frontend:latest"
+        image = "${var.region}-docker.pkg.dev/${var.project_id}/app-repo/frontend:latest"
         ports {
           container_port = 3000
         }
@@ -148,7 +140,8 @@ resource "google_cloud_run_service_iam_member" "backend_invoker" {
 # Variables
 # ------------------------------------------------------------
 variable "project_id" {
-  type = string
+  type    = string
+  default = "madeinportugal-store-ds2025"
 }
 
 variable "region" {

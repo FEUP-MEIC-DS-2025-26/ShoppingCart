@@ -3,7 +3,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const { upsertCart, getCart } = require('../db');
 const productService = require('../../productService');
-const { pool: pgdb } = require('../db');
+const pgdb = require('../db');
 const { publish, publishShoppingCart } = require('../events/pubsubPublisher');
 
 // GET /api/cart/:userId -> get specific cart by ID

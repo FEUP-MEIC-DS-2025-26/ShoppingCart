@@ -13,6 +13,7 @@ services:
     environment:
       # You can add database URLs or other secrets here
       - NODE_ENV=production
+      - DB_ENV=local
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/cartdb
     depends_on:
       - db
@@ -44,6 +45,7 @@ services:
     volumes:
       - ./MIPS-frontend:/app
       - /app/node_modules
+    command: ["pnpm", "dev"]
 
 volumes:
   backend_node_modules:

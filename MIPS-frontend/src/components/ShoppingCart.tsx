@@ -24,15 +24,11 @@ export interface Cart {
   items: CartItem[];
 }
 
-interface ShoppingCartPageProps {
-  userId: number;
-}
+const BACKEND_URL = (window.location.hostname == 'localhost' || window.location.hostname == '127.0.0.1')
+                  ? 'http://localhost:4000' : 'https://api.madeinportugal.store/';
 
-const BACKEND_URL = 'http://localhost:4000';
-
-const ShoppingCartPage = ({
-  userId
-}: ShoppingCartPageProps) => {
+const ShoppingCartPage = () => {
+  let userId = 1; // TODO: get from auth params
   let [loading, setLoading] = React.useState<boolean>(true);
   let [cart, setCart] = React.useState<Cart | null>(null);
   const [checkoutLoading, setCheckoutLoading] = React.useState(false);
