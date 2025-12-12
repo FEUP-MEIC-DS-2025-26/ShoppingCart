@@ -2,6 +2,7 @@ import { createModuleFederationConfig } from "@module-federation/rsbuild-plugin"
 
 export default createModuleFederationConfig({
   name: "mips_shopping_cart",
+  filename: 'remoteEntry.js',
   exposes: {
     "./ShoppingCartPage": "./src/components/ShoppingCart.tsx",
   },
