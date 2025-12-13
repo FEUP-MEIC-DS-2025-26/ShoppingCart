@@ -7,28 +7,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Disable Entity tag (Prevents 304 codes that turn into 500 in production)
+app.disable('etag');
 
-app.get('/', async (req, res) => {
+
+app.get('/', async (req, res) => {  
   try {
     return res.json({"success": "cart api is running"});
   } catch (error) {
     console.error('Error in /api/items:', error);
-    res.status(503).json({ error: 'Product service unavailable', actionable: 'Try again later' });
+    res.status(503).json({ error: 'Service unavailable', actionable: 'Try again later' });
   }
 });
 
-// Webhooks (mounted after json/raw middleware as needed)
-const webhooksRouter = require('./src/routes/webhooks');
-
-app.use('/api/webhooks', webhooksRouter);
-
-// Note: this backend uses the external product API (Jumpseller) as the single source of truth
-// for product data. Cart storage keeps item_id and quantity, but product details are always
-// fetched from the product service.
-// Utility function to format item data
-function toItem(row) {
-  return { id: row.id, name: row.name, price: row.price, stock: row.stock };
-}
 
 // GET /api/items - Get all products
 app.get('/api/items', async (req, res) => {

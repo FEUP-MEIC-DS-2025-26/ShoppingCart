@@ -5,8 +5,9 @@ import Button from "@mui/material/Button";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import Divider from "@mui/material/Divider";
-import IconButton from "@mui/material/IconButton";
 import DeleteIcon from "@mui/icons-material/Delete"; 
+import { useNavigate } from 'react-router-dom';
+import jwt from 'jsonwebtoken';
 
 export interface CartItem {
   itemId: number;
@@ -24,27 +25,40 @@ export interface Cart {
   items: CartItem[];
 }
 
-const BACKEND_URL = (window.location.hostname == 'localhost' || window.location.hostname == '127.0.0.1')
-                  ? 'http://localhost:4000' : 'https://api.madeinportugal.store/';
+const IN_PRODUCTION = !(window.location.hostname == 'localhost' || window.location.hostname == '127.0.0.1');
+const BACKEND_URL = IN_PRODUCTION ? 'https://api.madeinportugal.store' : 'http://localhost:4000';
+
+const getUserIdFromSession = async (): Promise<number | null> => {
+  const authenticationURL = "https://api.madeinportugal.store/api/auth/verify";
+
+  const response = await fetch(authenticationURL, {
+      method: "GET",
+      credentials: "include"
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+  const data = await response.json();
+  // console.log('[GETTING USER ID]:', data)
+  return data.userID ?? null;
+}
 
 const ShoppingCartPage = () => {
-  let userId = 1; // TODO: get from auth params
+  let [userId, setUserId] = React.useState<number | null>(null);
   let [loading, setLoading] = React.useState<boolean>(true);
   let [cart, setCart] = React.useState<Cart | null>(null);
   const [checkoutLoading, setCheckoutLoading] = React.useState(false);
+  const navigate = IN_PRODUCTION ? useNavigate() : undefined;
 
-  function updateCart() {
-    fetch(`${BACKEND_URL}/api/cart/${userId}`)
+  function updateCart(isSetup:boolean=false) {
+    if (userId === null) return;
+    const setupUrlStr = isSetup ? '/setup' : '';
+    fetch(`${BACKEND_URL}/api/cart/${userId}${setupUrlStr}`)
       .then(async (res) => {
         setLoading(false);
         if (!res.ok) {
-          // Test data for now
-          setCart({
-            userId: 1,
-            totalPriceCents: 0,
-            currency: 'USD',
-            items: []
-          })
+          setCart(null);
           return;
         }
         const data = await res.json();
@@ -52,9 +66,31 @@ const ShoppingCartPage = () => {
       });
   }
 
+  async function handleCheckout(res: Response) {
+    if (res.ok) {
+      if (IN_PRODUCTION) {
+        if (navigate) navigate('/delivery-choice');
+      } else {
+        alert(`Checkout successful!`);
+        updateCart();
+      }
+    } else {
+      alert(`Checkout failed: ${(await res.json()).error}`);
+    }
+  }
+
   React.useEffect(() => {
     setLoading(true);
-    updateCart();
+    if (IN_PRODUCTION) {
+      getUserIdFromSession().then(id => {
+        setUserId(id);
+        userId = id;
+        updateCart(true);
+      });
+    } else {
+      userId = 1;
+      updateCart(true);
+    }
   }, []);
 
   return (
@@ -83,7 +119,9 @@ const ShoppingCartPage = () => {
         🛒 Shopping Cart
       </Typography>
 
-      {cart === null ? (
+      {userId === null ? (
+        <Typography> Error occured. No user is logged in. </Typography>
+      ) : ( cart === null ? (
         loading ? <Typography> Loading... </Typography>
           : <Typography> Error occured. No cart available. </Typography>
       ) : (
@@ -192,24 +230,26 @@ const ShoppingCartPage = () => {
                         ${(lineTotal / 100).toFixed(2)}
                       </Typography>
 
-                      <Button
-                        variant="text"
-                        sx={{
-                          minWidth: 0,
-                          p: 0.5
-                        }}
-                        onClick={() => {
-                          // Edit Metadata button (for demo purposes, we just set a static value)
-                          fetch(`${BACKEND_URL}/api/cart/checkout/${cart.userId}`, {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                            },
-                          });
-                        }}
-                      >
-                        Edit
-                      </Button>
+                      {
+                      // <Button
+                      //   variant="text"
+                      //   sx={{
+                      //     minWidth: 0,
+                      //     p: 0.5
+                      //   }}
+                      //   onClick={() => {
+                      //     // Edit Metadata button (for demo purposes, we just set a static value)
+                      //     fetch(`${BACKEND_URL}/api/cart/checkout/${cart.userId}`, {
+                      //       method: 'POST',
+                      //       headers: {
+                      //         'Content-Type': 'application/json',
+                      //       },
+                      //     });
+                      //   }}
+                      // >
+                      //   Edit
+                      // </Button>
+                      }
                       
                       <Button
                         variant="outlined"
@@ -223,9 +263,9 @@ const ShoppingCartPage = () => {
                           fetch(`${BACKEND_URL}/api/cart/${cart.userId}/${cartItem.itemId}`, {
                             method: 'DELETE',
                           }).then(async (res) => {
-                              if (!res.ok) return;
-                              updateCart();
-                            });
+                            if (!res.ok) return;
+                            updateCart();
+                          });
                         }}
                       >
                         <DeleteIcon></DeleteIcon>
@@ -255,25 +295,11 @@ const ShoppingCartPage = () => {
                 disabled={checkoutLoading || !cart?.items?.length}
                 onClick={async () => {
                   setCheckoutLoading(true);
-                  try {
-                    const res = await fetch(`${BACKEND_URL}/api/cart/checkout/${cart.userId}`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        userId: cart.userId
-                      }),
-                    });
-                    const data = await res.json();
-                    if (res.ok) {
-                      alert(`Checkout successful!`);
-                      updateCart();
-                    } else {
-                      alert(`Checkout failed: ${data.error}`);
-                    }
-                  } catch (error) {
-                    alert('Network error during checkout');
-                  }
-                  setCheckoutLoading(false);
+                  fetch(`${BACKEND_URL}/api/cart/checkout/${cart.userId}`, {
+                    method: 'POST',
+                  }).then(handleCheckout).catch((err) => {
+                    alert(`Network error during checkout: ${err}`);
+                  }).finally(() => setCheckoutLoading(false));
                 }}
               >
                 {checkoutLoading ? 'Processing...' : 'Checkout'}
@@ -281,7 +307,7 @@ const ShoppingCartPage = () => {
             </>
           )}
         </>
-      )}
+      ))}
     </Box>
   );
 };
