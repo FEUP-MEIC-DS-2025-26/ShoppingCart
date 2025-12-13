@@ -22,16 +22,6 @@ CREATE TABLE IF NOT EXISTS CartItem (
 -- indexes
 CREATE INDEX IF NOT EXISTS IdxCartItemUserId ON CartItem(userId);
 
--- Item table: store product snapshots from Jumpseller
-CREATE TABLE IF NOT EXISTS Item (
-  id INTEGER PRIMARY KEY,
-  name TEXT,
-  price BIGINT,
-  stock INTEGER,
-  metadata JSONB,
-  updatedAt TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
 -- triggers
 CREATE OR REPLACE FUNCTION CartItemInsertTriggerFunction()
     RETURNS TRIGGER
