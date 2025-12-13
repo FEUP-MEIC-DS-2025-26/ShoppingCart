@@ -19,29 +19,6 @@ function parseItem(item) {
     };
 }
 
-async function getProductsFromUrl(url) {
-    try {
-        const response = await fetch(url, {
-            headers: {
-                'Authorization': `Basic ${Buffer.from(`${this.login}:${this.authToken}`).toString('base64')}`
-            }
-        });
-
-        if (!response.ok) {
-            const text = await response.text().catch(() => '');
-            throw new Error(`API Error: ${response.status} ${text}`);
-        }
-
-        const data = await response.json();
-
-        // Jumpseller may return an array of product objects, or wrappers like { product: { ... } }.
-        // Be resilient to both shapes.
-        return (data || []).map(parseItem).filter(r => r && r.id != null);
-    } catch (error) {
-        console.error('Error fetching products from Jumpseller:', error && error.message ? error.message : error);
-        return null; // Fall back to local database
-    }
-}
 
 class ProductService {
     constructor() {
@@ -50,6 +27,30 @@ class ProductService {
         this.authToken = process.env.JUMPSELLER_AUTH_TOKEN;
     }
     
+    async getProductsFromUrl(url) {
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Basic ${Buffer.from(`${this.login}:${this.authToken}`).toString('base64')}`
+                }
+            });
+
+            if (!response.ok) {
+                const text = await response.text().catch(() => '');
+                throw new Error(`API Error: ${response.status} ${text}`);
+            }
+
+            const data = await response.json();
+
+            // Jumpseller may return an array of product objects, or wrappers like { product: { ... } }.
+            // Be resilient to both shapes.
+            return (data || []).map(parseItem).filter(r => r && r.id != null);
+        } catch (error) {
+            console.error('Error fetching products from Jumpseller:', error && error.message ? error.message : error);
+            return null; // Fall back to local database
+        }
+    }
+
     async getProducts() {
         return await getProductsFromUrl(`${this.apiUrl}/products.json`);
     }
