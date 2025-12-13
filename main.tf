@@ -23,6 +23,7 @@ provider "google" {
 # ------------------------------------------------------------
 resource "google_project_service" "run" {
   service = "run.googleapis.com"
+  disable_on_destroy = false
 }
 
 # ------------------------------------------------------------
@@ -35,11 +36,6 @@ locals {
     if length(trim(line, " \r\t")) > 0
     && !startswith(trim(line, " \r\t"), "#")
   ]
-}
-
-resource "time_sleep" "wait_for_run_api" {
-  depends_on = [google_project_service.run]
-  create_duration = "45s"
 }
 
 resource "google_cloud_run_service" "backend" {
@@ -81,7 +77,7 @@ resource "google_cloud_run_service" "backend" {
   autogenerate_revision_name = true
 
   depends_on = [
-    time_sleep.wait_for_run_api
+    google_project_service.run
   ]
 }
 

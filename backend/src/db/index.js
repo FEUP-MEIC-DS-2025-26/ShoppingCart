@@ -6,39 +6,55 @@ const {Connector} = require('@google-cloud/cloud-sql-connector');
 
 // Create PostgreSQL connection pool
 async function getPoolFromEnv() {
+  const totalTries = 5;
+  let tries = totalTries;
   let pool;
-  if (process.env.DB_ENV === 'local') {
-    console.log('[db] Initializing Local Pool...');
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL_LOCAL,
-      connectionTimeoutMillis: 5000,
-    });
-    console.log('[db] Local Pool Instanciated');
-  } else {
-    console.log('[db] Initializing Cloud Pool...');
-    const connector = new Connector();
-    const clientOpts = await connector.getOptions({
-      instanceConnectionName: process.env.DATABASE_URL_CLOUD,
-      authType: 'IAM'
-    });
-    console.log('[db] Cloud Pool: Got Connector');
-    
-    pool = new Pool({
-      ...clientOpts,
-      user: 'postgres',
-      password: 'postgres'
-    });
-    console.log('[db] Cloud Pool Instanciated');
-  }
-  
-  pool.on('connect', () => {
-    console.log('[db] Connected to PostgreSQL');
-  });
+  while (tries > 0) {
+    try {
+      if (process.env.DB_ENV === 'local') {
+        console.log('[db] Initializing Local Pool...');
+        pool = new Pool({
+          connectionString: process.env.DATABASE_URL_LOCAL,
+          connectionTimeoutMillis: 5000,
+        });
+        console.log('[db] Local Pool Instanciated');
+      } else {
+        console.log('[db] Initializing Cloud Pool...');
+        const connector = new Connector();
+        const clientOpts = await connector.getOptions({
+          instanceConnectionName: process.env.DATABASE_URL_CLOUD,
+          authType: 'IAM'
+        });
+        console.log('[db] Cloud Pool: Got Connector');
+        
+        pool = new Pool({
+          ...clientOpts,
+          user: 'postgres',
+          password: 'postgres'
+        });
+        console.log('[db] Cloud Pool Instanciated');
+      }
+      
+      pool.on('connect', () => {
+        console.log('[db] Connected to PostgreSQL');
+      });
 
-  pool.on('error', (err) => {
-    console.error('[db] Unexpected error on idle client', err);
-    process.exit(-1);
-  });
+      pool.on('error', (err) => {
+        console.error('[db] Unexpected error on idle client', err);
+        process.exit(-1);
+      });
+      break;
+    } catch (error) {
+      if (tries-- === 0) {
+        console.error(`[db] Couldn't connect to database after ${totalTries}, giving up:`, error) ;
+        throw error;
+      }
+      console.error(`[db] Couldn't connect to database on try nº${totalTries - tries}:`,  error) ;
+      // Sleep 3 seconds and try again
+      await new Promise(r => setTimeout(r, 3000));
+      console.warn(`[db] Trying to connect to database again...`)
+    }
+  }
 
   return pool;
 }
@@ -98,31 +114,39 @@ async function migrate() {
   }
 }
 
-// Upsert a product payload from Jumpseller into the local `items` table.
-// Strategy: try to match by `external_id` (if present) or `name`. If not found, insert.
-async function upsertProductFromJumpseller(product) {
-  const pool = await poolPromise;
-  const { id: externalId, title: name, price, stock } = product;
-  // Normalize price: Jumpseller may send cents or float; expect cents integer or a number
-  const priceInt = Number.isInteger(price) ? price : Math.round((price || 0) * 100);
-
-  const res = await pool.query(
-    `INSERT INTO Item (name, price, stock, updatedAt)
-     VALUES ($1, $2, $3, NOW())
-     ON CONFLICT (name)
-     DO UPDATE SET
-        price = EXCLUDED.price,
-        stock = EXCLUDED.stock,
-        updatedAt = NOW()
-     RETURNING id`,
-    [name, priceInt, stock || 0]
+async function __upsertCartItem(queryCaller, userId, itemData, addQuantity=false) {
+  await queryCaller.query(
+    `INSERT INTO CartItem (userId, itemId, name, quantity, priceCents, sku, metadata)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (userId, itemId)
+      DO UPDATE SET
+        name = COALESCE(EXCLUDED.name, CartItem.name),` +
+      ( addQuantity
+      ? `quantity = CartItem.quantity + COALESCE(EXCLUDED.quantity, 1),`
+      : `quantity = COALESCE(EXCLUDED.quantity, CartItem.quantity),`) +
+      ` priceCents = COALESCE(EXCLUDED.priceCents, CartItem.priceCents),
+        sku = COALESCE(EXCLUDED.sku, CartItem.sku),
+        metadata = COALESCE(EXCLUDED.metadata, CartItem.metadata)`,
+    [
+      userId,
+      itemData.itemId,
+      itemData.name || null,
+      itemData.quantity,
+      itemData.priceCents || 0,
+      itemData.sku || null,
+      itemData.metadata ? JSON.stringify(itemData.metadata) : null
+    ]
   );
+}
 
-   const wasInserted = res.command === 'INSERT';
-
-  return wasInserted
-    ? { inserted: true, id: res.rows[0].id }
-    : { updated: true, id: res.rows[0].id };
+async function upsertCartItem(userId, itemData, addQuantity=false) {
+  const pool = await poolPromise;
+  try {
+    await __upsertCartItem(pool, userId, itemData, addQuantity)
+  } catch (error) {
+    console.error('[db] Error upserting cart item:', error);
+    throw error;
+  } 
 }
 
 /**
@@ -158,26 +182,7 @@ async function upsertCart(cartData) {
     await client.query('DELETE FROM CartItem WHERE userId = $1', [userId]);
     
     for (const item of items) {
-      await client.query(
-        `INSERT INTO CartItem (userId, itemId, name, quantity, priceCents, sku, metadata)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (userId, itemId)
-         DO UPDATE SET
-           name = EXCLUDED.name,
-           quantity = EXCLUDED.quantity,
-           priceCents = EXCLUDED.priceCents,
-           sku = EXCLUDED.sku,
-           metadata = EXCLUDED.metadata`,
-        [
-          userId,
-          item.itemId,
-          item.name || null,
-          item.quantity,
-          item.priceCents || 0,
-          item.sku || null,
-          item.metadata ? JSON.stringify(item.metadata) : null
-        ]
-      );
+      await __upsertCartItem(client, userId, item);
     }
 
     await client.query('COMMIT');
@@ -240,10 +245,29 @@ async function getCart(userId) {
   }
 }
 
+async function createCartIfNotExists(userId) {
+  const pool = await poolPromise;
+  try {
+    const cartResult = await pool.query('SELECT 1 FROM Cart WHERE userId = $1', [userId]);
+    if (cartResult.rows.length === 0) {
+      // Create if it doesn't exist
+      await upsertCart({
+        userId,
+        items: [],
+      });
+    }
+  } catch (error) {
+    console.error('[db] Error creating cart:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   query,
   initDb,
   migrate,
   upsertCart,
-  getCart
+  upsertCartItem,
+  getCart,
+  createCartIfNotExists
 };
