@@ -1,4 +1,3 @@
--- simple migrations for shopping cart (copied into src/scripts for container path)
 -- Cart table
 CREATE TABLE IF NOT EXISTS Cart (
   userId INTEGER PRIMARY KEY,

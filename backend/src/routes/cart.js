@@ -3,6 +3,22 @@ const router = express.Router();
 const { upsertCart, upsertCartItem, getCart, createCartIfNotExists } = require('../db');
 // const productService = require('../../productService');
 const pgdb = require('../db');
+const { PubSub } = require("@google-cloud/pubsub");
+
+const IN_PRODUCTION = process.env.DB_ENV !== 'local';
+const pubsub = IN_PRODUCTION ? new PubSub({ projectId: 'ds-2526-mips' }) : null;
+
+async function publishCart(type, data) {
+  if (IN_PRODUCTION) {
+    try {
+      const topic = pubsub.topic('shopping_carts');
+      const messageId = await topic.publishMessage({ json: { type, data } });
+      console.log(`[Pub-Sub] Published message to: ${messageId}`);
+    } catch (error) {
+      console.error(`[Pub-Sub] Error publishing message: ${error}`);
+    }
+  }
+}
 
 // GET /api/cart/:userId -> get specific cart by ID
 router.get('/:userId', async (req, res) => {
@@ -36,6 +52,7 @@ router.get('/:userId/setup', async (req, res) => {
       return res.status(404).json({ error: 'Cart not found' });
     }
 
+    await publishCart('cart', cart);
     return res.status(200).json(cart);
 
   } catch (error) {
@@ -80,7 +97,7 @@ router.post('/', async (req, res) => {
     // Fetch updated cart
     const cart = await getCart(userId);
 
-    // Return cart snapshot
+    await publishCart('cart', cart);
     return res.status(200).json(cart);
 
   } catch (error) {
@@ -102,6 +119,7 @@ router.delete('/:userId', async (req, res) => {
 
     await pgdb.query('DELETE FROM CartItem WHERE userId = $1', [userId]);
     await pgdb.query('DELETE FROM Cart WHERE userId = $1', [userId]);
+    await publishCart('delete', { userId });
 
     return res.status(200).json({ success: true });
   } catch (error) {
@@ -118,6 +136,8 @@ router.post('/:userId', async (req, res) => {
   try {
     await createCartIfNotExists(userId);
     await upsertCartItem(userId, itemData, true);
+    
+    await publishCart(await getCart(userId));
     return res.json({ success: true });
   } catch (err) {
     console.error('Error in cart POST:', err);
@@ -133,11 +153,13 @@ router.put('/:userId/:itemId', async (req, res) => {
   if (quantity === 0) {
     const userId = itemId;
     await pgdb.query('DELETE FROM CartItem WHERE userId = $1 AND itemId = $2', [userId, itemId]);
+    await publishCart(await getCart(userId));
     return res.json({ success: true });
   }
 
   try {
     await pgdb.query('UPDATE CartItem SET quantity = $1 WHERE userId = $2 AND itemId = $3', [quantity, userId, itemId]);
+    await publishCart(await getCart(userId));
     return res.json({ success: true });
   } catch (err) {
     console.error('Error in cart PUT:', err);
@@ -150,6 +172,7 @@ router.delete('/:userId/:itemId', async (req, res) => {
   const { userId, itemId } = req.params;
   try {
     await pgdb.query('DELETE FROM CartItem WHERE userId = $1 AND itemId = $2', [userId, itemId]);
+    await publishCart(await getCart(userId));
     return res.json({ success: true });
   } catch (err) {
     console.error('Error in cart DELETE:', err);

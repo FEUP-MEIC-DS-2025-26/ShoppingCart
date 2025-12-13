@@ -142,7 +142,8 @@ async function __upsertCartItem(queryCaller, userId, itemData, addQuantity=false
 async function upsertCartItem(userId, itemData, addQuantity=false) {
   const pool = await poolPromise;
   try {
-    await __upsertCartItem(pool, userId, itemData, addQuantity)
+    await __upsertCartItem(pool, userId, itemData, addQuantity);
+
   } catch (error) {
     console.error('[db] Error upserting cart item:', error);
     throw error;
@@ -188,7 +189,6 @@ async function upsertCart(cartData) {
     await client.query('COMMIT');
     console.log(`[db] Cart upserted: ${userId}`);
     return userId;
-
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('[db] Error upserting cart:', error);
