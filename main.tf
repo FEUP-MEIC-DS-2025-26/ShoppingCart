@@ -144,3 +144,23 @@ variable "region" {
   type    = string
   default = "europe-west2"
 }
+
+# --- PUBLISHER ---
+
+# 1. Define a specific provider for the external project
+provider "google" {
+  alias       = "pubsub_project_auth"
+  project     = "ds-2526-mips"
+  # This tells Terraform to login using the key file you just saved
+  credentials = file("${path.module}/pubsubkey.json") 
+}
+
+# 2. Update the resource to use that specific provider
+resource "google_pubsub_topic_iam_member" "publisher_binding" {
+  provider = google.pubsub_project_auth # <--- IMPORTANT: Point to the alias above
+  
+  project = "ds-2526-mips"
+  topic   = "add_to_cart"
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:pubsub-backend@ds-2526-mips.iam.gserviceaccount.com"
+}
