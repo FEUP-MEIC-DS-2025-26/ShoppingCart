@@ -23,6 +23,13 @@ dist/
 .env.test.local
 .env.production.local
 
+# Google Cloud credentials (NEVER commit these!)
+*key.json
+*-key.json
+service-account*.json
+credentials.json
+gcp-credentials.json
+
 # Database
 *.db
 *.sqlite
